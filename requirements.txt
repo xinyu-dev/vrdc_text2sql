@@ -1,0 +1,17 @@
+torch
+transformers==4.51.3
+tqdm==4.66.4
+func-timeout==4.3.5
+sumeval==0.2.2
+numpy==1.26.4
+pandas==2.2.2
+PyYAML==6.0.1
+sqlalchemy==2.0.41
+psycopg2-binary==2.9.10
+
+# RAG and Inference Dependencies
+faiss-cpu==1.7.4
+openai==1.12.0
+python-dotenv==1.0.0
+psutil==5.9.8
+asyncio

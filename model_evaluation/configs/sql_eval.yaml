@@ -1,0 +1,25 @@
+error_log_base: |
+  0. Question
+  ```
+  {question}
+  ``` 
+  1. SQL query
+
+  ```sql
+  {sql_query}
+  ```
+
+  2. Failed generated SQL query
+
+  ```sql
+  {generated_sql_query}
+  ```
+database_type: postgres
+
+database_credentials:
+  user: postgres
+  password: 123456
+  host: localhost
+  database: as-copilot
+  port: 9876
+  options: "-c search_path=\"VINMEC\""

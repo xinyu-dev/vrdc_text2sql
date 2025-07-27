@@ -1,0 +1,62 @@
+[
+  {
+    "index": 1,
+    "input": "tell me the method of dextrose 5% in water (d5w) iv : 1000 ml bag intake?",
+    "predict": "select distinct treatment.treatmentname from treatment where treatment.treatmentname = 'Dextrose 5% in Water (D5W) IV : 1000 ml bag';",
+    "real": "select distinct medication.routeadmin from medication where medication.drugname = 'dextrose 5% in water (d5w) iv : 1000 ml bag'"
+  },
+  {
+    "index": 2,
+    "input": "what are the intake methods of clonidine?",
+    "predict": "select distinct medication.routeadmin from medication where medication.drugname = 'clonidine';",
+    "real": "select distinct medication.routeadmin from medication where medication.drugname = 'clonidine'"
+  },
+  {
+    "index": 3,
+    "input": "tell me the method of morphine 2 mg/1 ml 1 ml syr intake?",
+    "predict": "select distinct medication.routeadmin from medication where medication.drugname = 'morphine 2 mg/1 ml 1 ml syr';",
+    "real": "select distinct medication.routeadmin from medication where medication.drugname = 'morphine 2 mg/1 ml 1 ml syr'"
+  },
+  {
+    "index": 4,
+    "input": "what are the intake methods of propofol 1000 mg/100 ml (pmx)?",
+    "predict": "select distinct medication.routeadmin from medication where medication.drugname = 'propofol 1000 mg/100 ml (pmx)';",
+    "real": "select distinct medication.routeadmin from medication where medication.drugname = 'propofol 1000 mg/100 ml (pmx)'"
+  },
+  {
+    "index": 5,
+    "input": "how is zolpidem tartrate 5 mg po tabs delivered?",
+    "predict": "select distinct medication.routeadmin from medication where medication.drugname = 'zolpidem tartrate 5 mg po tabs';",
+    "real": "select distinct medication.routeadmin from medication where medication.drugname = 'zolpidem tartrate 5 mg po tabs'"
+  },
+  {
+    "index": 6,
+    "input": "what is vancomycin inj 1,000 mg vial. administered?",
+    "predict": "select distinct t1.routeadmin from medication t1 where t1.drugname = 'vancomycin inj 1,000 mg vial';",
+    "real": "select distinct medication.routeadmin from medication where medication.drugname = 'vancomycin inj 1,000 mg vial.'"
+  },
+  {
+    "index": 7,
+    "input": "tell me the cost of the procedure known as internal fixation?",
+    "predict": "select distinct cost.cost from cost where cost.eventtype = 'Procedure' and cost.eventid in ( select treatment.treatmentid from treatment where treatment.treatmentname = 'internal fixation' ) order by cost.cost;",
+    "real": "select distinct cost.cost from cost where cost.eventtype = 'treatment' and cost.eventid in ( select treatment.treatmentid from treatment where treatment.treatmentname = 'internal fixation' )"
+  },
+  {
+    "index": 8,
+    "input": "what does it cost to have a angiography - pulmonary angiogram.",
+    "predict": "select distinct cost.cost from cost where cost.eventtype = 'Procedure' and cost.uniquepid in ( select patient.uniquepid from patient where patient.patientunitstayid in ( select diagnosis.patientunitstayid from diagnosis where diagnosis.diagnosisname = 'angiography - pulmonary angiogram' ) ) order by cost.cost asc;",
+    "real": "select distinct cost.cost from cost where cost.eventtype = 'treatment' and cost.eventid in ( select treatment.treatmentid from treatment where treatment.treatmentname = 'angiography - pulmonary angiogram' )"
+  },
+  {
+    "index": 9,
+    "input": "what cost does a procedure called thoracoscopic procedure - wedge resection cost?",
+    "predict": "select distinct cost.cost from cost where cost.eventtype = 'Procedure' and cost.eventid = ( select distinct treatment.treatmentid from treatment where treatment.treatmentname = 'thoracoscopic procedure - wedge resection' );",
+    "real": "select distinct cost.cost from cost where cost.eventtype = 'treatment' and cost.eventid in ( select treatment.treatmentid from treatment where treatment.treatmentname = 'thoracoscopic procedure - wedge resection' )"
+  },
+  {
+    "index": 10,
+    "input": "what is the cost for the procedure insertion of venous catheter for hemodialysis - percutaneous catheter?",
+    "predict": "select distinct cost.cost from cost where cost.eventtype = 'Procedure' and cost.uniquepid in ( select patient.uniquepid from patient where patient.patienthealthsystemstayid in ( select diagnosis.patientunitstayid from diagnosis where diagnosis.diagnosisname = 'insertion of venous catheter for hemodialysis - percutaneous catheter' ) ) and cost.eventtype = 'Procedure';",
+    "real": "select distinct cost.cost from cost where cost.eventtype = 'treatment' and cost.eventid in ( select treatment.treatmentid from treatment where treatment.treatmentname = 'insertion of venous catheter for hemodialysis - percutaneous catheter' )"
+  }
+]
