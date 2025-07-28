@@ -2,7 +2,6 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
 model_evaluation/databases
-model_predictions/eICU/mistral_nemo_minitron_8B_finetuned/*/predictions.json
 
 
 ### Python ###
