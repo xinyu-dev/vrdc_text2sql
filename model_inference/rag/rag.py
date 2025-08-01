@@ -10,16 +10,18 @@ from openai import OpenAI
 # from tqdm import tqdm
 import faiss
 from dotenv import load_dotenv
+from loguru import logger
 
 # Load environment variables from .env file
 load_dotenv()
 
 
-
+# ===== Client for embedding model=====
 client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
-    api_key=os.getenv("NVIDIA_API_KEY"),
+    api_key=os.getenv("NGC_API_KEY"),
 )
+# ===== End of embedding model client =====
 
 # Define data structures
 class QueryData:
@@ -36,7 +38,7 @@ class QueryData:
 
 # Embedding Generation
 
-def generate_database_embeddings(database, embedding_model_name, embedding_cache_file):
+def generate_database_embeddings(database, embedding_model_name, embedding_cache_file, input_type="passage"):
     if os.path.isfile(embedding_cache_file):
         ## Load
         with open(embedding_cache_file, "rb") as f:
@@ -44,7 +46,7 @@ def generate_database_embeddings(database, embedding_model_name, embedding_cache
 
     else:
         for sample in database:
-            # print("processing data id: ", sample.sample_id)
+            logger.debug(f"Running embedding with {embedding_model_name} for data id: {sample.sample_id}")
 
             # Generate embedding from summary content
             if sample.embedding is None:
@@ -52,7 +54,7 @@ def generate_database_embeddings(database, embedding_model_name, embedding_cache
                     input=sample.question,
                     model=embedding_model_name,
                     encoding_format="float",
-                    extra_body={"input_type": "passage", "truncate": "NONE"},
+                    extra_body={"input_type": input_type, "truncate": "NONE"},
                 ).data[0].embedding
                 # print("finish to create embedding")
         # Dump
@@ -63,12 +65,12 @@ def generate_database_embeddings(database, embedding_model_name, embedding_cache
     # print("Embeddings generated for all logs")
     return database
 
-def generate_embeddings(context, embedding_model_name):
+def generate_embeddings(context, embedding_model_name, input_type="passage"):
     embedding_vector = client.embeddings.create(
         input=context,
         model=embedding_model_name,
         encoding_format="float",
-        extra_body={"input_type": "passage", "truncate": "NONE"},
+        extra_body={"input_type": input_type, "truncate": "NONE"},
     ).data[0].embedding
 
     return embedding_vector
@@ -76,7 +78,8 @@ def generate_embeddings(context, embedding_model_name):
 
 # Create Vector Index
 def create_faiss_index(database, embedding_model_name, embedding_cache_file):
-    database = generate_database_embeddings(database, embedding_model_name, embedding_cache_file)
+    # Added input_type as "passage" for database embeddings
+    database = generate_database_embeddings(database, embedding_model_name, embedding_cache_file, input_type="passage")
     embeddings = np.array([sample.embedding for sample in database]).astype("float32")
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
@@ -86,7 +89,7 @@ def create_faiss_index(database, embedding_model_name, embedding_cache_file):
 # Similarity Search Function
 def find_similar(input_question, database, index, embedding_model_name, top_k=3):
     # Generate query embedding
-    query_embedding = generate_embeddings(input_question, embedding_model_name)
+    query_embedding = generate_embeddings(input_question, embedding_model_name, input_type="passage") # use type passage for query embedding results in better accuracy
     query_embedding = np.array(query_embedding).reshape(1, -1)
     # Vector search
     distances, indices = index.search(query_embedding, top_k)

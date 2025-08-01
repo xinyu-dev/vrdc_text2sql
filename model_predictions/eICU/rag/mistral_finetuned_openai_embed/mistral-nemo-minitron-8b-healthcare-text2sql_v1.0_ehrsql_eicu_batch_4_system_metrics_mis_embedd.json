@@ -1,0 +1,11 @@
+{
+  "average_memory_mb": 0.014334542410714286,
+  "peak_memory_mb": 2090.71484375,
+  "average_latency_ms": 9704.082238887038,
+  "average_throughput_tokens_per_sec": 2330.4160091932863,
+  "total_throughput_tokens_per_sec": 1093.4127208615496,
+  "total_tokens": 4753534,
+  "total_time_sec": 4347.428843021393,
+  "batch_size": 4,
+  "num_batches": 448
+}

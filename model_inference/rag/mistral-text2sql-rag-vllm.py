@@ -1,6 +1,6 @@
 import argparse
 import json
-import os
+import os, sys
 import time
 import torch
 import psutil
@@ -11,6 +11,13 @@ from tqdm import tqdm
 from openai import OpenAI, AsyncOpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from rag import create_faiss_index, find_similar, QueryData
+from loguru import logger
+
+# NOTE: ===== Experimental =====
+sys.path.append('/root/workspace/vrdc_text2sql/model_evaluation')
+from utils.experimental import FAISSRetriever, split_sql_blocks
+# NOTE: ===== End of Experimental =====
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -30,6 +37,7 @@ def parse_args():
     parser.add_argument("--dataset_path", type=str, default="/home/jovyan/lustre/users/hndo/text2sql_eval/benchmark/processed_data/initial/test_ehrsql_eicu_data.json")
     parser.add_argument("--metadata_path", type=str, default="/home/jovyan/lustre/users/hndo/text2sql_eval/benchmark/processed_data/metadata/eicu_instruct.sql")
     parser.add_argument("--format", type=str, default="sqlite")
+    parser.add_argument("--experimental", action="store_true") # enable experimental features such as DDL retrieval to increase accuracy
     # parser.add_argument("--stop_token", type=str, default="<extra_id_1>")
     return parser.parse_args()
 
@@ -53,22 +61,73 @@ if __name__ == "__main__":
     peak_memory = 0
     process = psutil.Process()
     
+    # ===== Client for text2SQL model =====
+    # For finetuned Mistral model: 
+    # async_client = AsyncOpenAI(
+    #     api_key=os.getenv("NGC_API_KEY"),
+    #     base_url=f"http://{args.ip}:{args.port}/v1",
+    # )
+
+    # For claude: 
     async_client = AsyncOpenAI(
-        api_key=os.getenv("NVIDIA_API_KEY"),
-        base_url=f"http://{args.ip}:{args.port}/v1",
+        api_key=os.environ['BEDROCK_OPENAI_API_KEY'],
+        base_url=os.environ['BEDROCK_OPENAI_BASE_URL']
     )
+    # ===== End of client for text2SQL model =====
+
+    if not args.experimental:
+        logger.info("Experimental features are disabled.")
+
+    # NOTE: ===== experimental =====
+    if args.experimental:
+        logger.warning("Using experimental features...")
+        # Chunk and retrieve DDL blocks
+        # read ddl from file
+        sql_file = args.metadata_path
+        assert os.path.exists(sql_file), f"SQL file {sql_file} does not exist"
+
+        # Split the SQL file into blocks
+        blocks = split_sql_blocks(sql_file)
+        logger.info(f"Number of DDL blocks: {len(blocks)}")
+
+        # create a retriever. Must use OpenAI embedding due to length limit of Mistral embedding model
+        ddl_retreiver = FAISSRetriever(
+            api_key=os.getenv("LLM_GATEWAY_API"),
+            api_version="2025-04-01-preview",
+            azure_endpoint = "https://prod.api.nvidia.com/llm/v1/azure",
+            model = "text-embedding-3-large", 
+        )
+
+        # specify the cache file for the DDL vector database. Use None to re-generate the embeddings without saving. 
+        ddl_embedding_cache_file = "/root/workspace/vrdc_text2sql/model_evaluation/dataset/train_eval/eicu/ddl_database_openai_text-embedding-3-large.pkl"
+        ddl_retreiver.embed_blocks(
+            text_blocks=blocks,
+            cache_file=ddl_embedding_cache_file,
+        )
+    # ===== end of experimental =====
+    
     
     async def calling_model_async(messages, retries=3, delay=5):
         for attempt in range(retries):
             try:
+                # For finetuned Mistral model: 
+                # response = await async_client.chat.completions.create(
+                #     model=checkpoint_path,
+                #     messages=messages,
+                #     temperature=0.0,
+                #     top_p=0.95,
+                #     max_tokens=max_seq_length,
+                #     stop=["<extra_id_1>"],  # Changed from stop_token_ids to stop
+                #     timeout=300  # Increased to 5 minutes for slower generation
+                # )
+
+                # for claude: 
                 response = await async_client.chat.completions.create(
                     model=checkpoint_path,
                     messages=messages,
                     temperature=0.0,
                     top_p=0.95,
-                    max_tokens=max_seq_length,
-                    stop=["<extra_id_1>"],  # Changed from stop_token_ids to stop
-                    timeout=300  # Increased to 5 minutes for slower generation
+                    max_completion_tokens=max_seq_length,
                 )
                 return response.choices[0].message.content, response.usage.total_tokens
             except Exception as e:
@@ -86,6 +145,8 @@ if __name__ == "__main__":
         table_metadata_string = f.read()
     
     def generate_prompt(question, ddl, instruction, retrieved_ids, train_pd, current_date, format_sql):
+
+        # retrieve Q&A blocks
         retrieved_samples = "Here are some sample question and correct SQL (may or may not be useful in constructing the SQL to answer the question) :\n\n"
         for idx in retrieved_ids:
             q = str(train_pd.loc[idx, "questions"])
@@ -94,11 +155,21 @@ if __name__ == "__main__":
                 retrieved_samples += f"Question: {q}.  SQL answer: \nNone\n"
             else:
                 retrieved_samples += f"Question: {q}.  SQL answer: ```sql\n{sql}\n```\n"
-        
+
+        # NOTE:===== experimental =====
+        if args.experimental:
+            # try retriving relevant blocks from the DDL vector database
+            retrieved_blocks = ddl_retreiver.retrieve(
+                query = question,
+                top_k=5 # top_k for DDL chunk retrieval
+            )
+            ddl = "\n".join([b['content'] for b in retrieved_blocks])
+        # NOTE: ===== end of experimental =====
+
         prompt_chat_template_rag = [
             {
                 "role": "system",
-                "content": f"Based on DDL statements, instructions, and the current date, generate a SQL query in the following {format_sql} to answer the question.\n If the question cannot be answered using the available tables and columns in the DDL (i.e., it is out of scope), return only: None.\nToday is {current_date}\nDDL statements:\n{ddl}\n{retrieved_samples}\nInstructions:\n{instruction}",
+                "content": f"Based on DDL statements, instructions, and the current date, generate a SQL query in the following {format_sql} to answer the question.\nIf the question cannot be answered using the available tables and columns in the DDL (i.e., it is out of scope), return only: None.\nToday is {current_date}\nDDL statements:\n{ddl}\n{retrieved_samples}\nInstructions:\n{instruction}",
             },
             {
                 "role": "user",
