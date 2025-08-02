@@ -2,7 +2,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
 model_evaluation/databases
-model_evaluation/dataset/train_eval/eicu/*.pkl
+model_evaluation/dataset/train_eval/eicu
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

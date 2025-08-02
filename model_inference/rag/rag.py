@@ -16,12 +16,12 @@ from loguru import logger
 load_dotenv()
 
 
-# ===== Client for embedding model=====
+# ===== Client for Q&A embedding model=====
 client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
     api_key=os.getenv("NGC_API_KEY"),
 )
-# ===== End of embedding model client =====
+# ===== End of Q&A embedding model client =====
 
 # Define data structures
 class QueryData:
@@ -81,9 +81,22 @@ def create_faiss_index(database, embedding_model_name, embedding_cache_file):
     # Added input_type as "passage" for database embeddings
     database = generate_database_embeddings(database, embedding_model_name, embedding_cache_file, input_type="passage")
     embeddings = np.array([sample.embedding for sample in database]).astype("float32")
-    index = faiss.IndexFlatL2(embeddings.shape[1])
+    
+    # Initialize GPU resources for cuVS
+    assert faiss.get_num_gpus() > 0, "No GPU found"
+    gpu_res = faiss.StandardGpuResources()
+    device = 0
+    
+    # Configure cuVS
+    cfg = faiss.GpuIndexFlatConfig()
+    cfg.device = device
+    cfg.useFloat16 = False
+    cfg.use_cuvs = True
+    
+    # Create GPU FAISS index with cuVS (L2 distance)
+    index = faiss.GpuIndexFlatL2(gpu_res, embeddings.shape[1], cfg)
     index.add(embeddings)
-    # print(f"FAISS index created with {index.ntotal} entries")
+    logger.info(f"GPU cuVS FAISS index created with {index.ntotal} entries on device {device}")
     return index
 
 # Similarity Search Function

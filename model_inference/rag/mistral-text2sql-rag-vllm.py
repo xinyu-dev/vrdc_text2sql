@@ -12,6 +12,9 @@ from openai import OpenAI, AsyncOpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from rag import create_faiss_index, find_similar, QueryData
 from loguru import logger
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # NOTE: ===== Experimental =====
 sys.path.append('/root/workspace/vrdc_text2sql/model_evaluation')
@@ -63,16 +66,16 @@ if __name__ == "__main__":
     
     # ===== Client for text2SQL model =====
     # For finetuned Mistral model: 
-    # async_client = AsyncOpenAI(
-    #     api_key=os.getenv("NGC_API_KEY"),
-    #     base_url=f"http://{args.ip}:{args.port}/v1",
-    # )
+    async_client = AsyncOpenAI(
+        api_key=os.getenv("NGC_API_KEY"),
+        base_url=f"http://{args.ip}:{args.port}/v1",
+    )
 
     # For claude: 
-    async_client = AsyncOpenAI(
-        api_key=os.environ['BEDROCK_OPENAI_API_KEY'],
-        base_url=os.environ['BEDROCK_OPENAI_BASE_URL']
-    )
+    # async_client = AsyncOpenAI(
+    #     api_key=os.environ['BEDROCK_OPENAI_API_KEY'],
+    #     base_url=os.environ['BEDROCK_OPENAI_BASE_URL']
+    # )
     # ===== End of client for text2SQL model =====
 
     if not args.experimental:
@@ -91,15 +94,22 @@ if __name__ == "__main__":
         logger.info(f"Number of DDL blocks: {len(blocks)}")
 
         # create a retriever. Must use OpenAI embedding due to length limit of Mistral embedding model
+        # ddl_retreiver = FAISSRetriever(
+        #     api_key=os.getenv("LLM_GATEWAY_API"),
+        #     api_version=os.getenv("LLM_GATEWAY_API_VERSION"),
+        #     endpoint = os.getenv("LLM_GATEWAY_ENDPOINT"),
+        #     model = "text-embedding-3-large", 
+        # )
+
         ddl_retreiver = FAISSRetriever(
-            api_key=os.getenv("LLM_GATEWAY_API"),
-            api_version="2025-04-01-preview",
-            azure_endpoint = "https://prod.api.nvidia.com/llm/v1/azure",
-            model = "text-embedding-3-large", 
+            api_key=os.getenv("NGC_API_KEY"),
+            endpoint = "https://integrate.api.nvidia.com/v1",
+            model = "nvdev/nvidia/llama-3.2-nv-embedqa-1b-v2",  # remove the "nvdev/" if using public playground 
         )
 
         # specify the cache file for the DDL vector database. Use None to re-generate the embeddings without saving. 
-        ddl_embedding_cache_file = "/root/workspace/vrdc_text2sql/model_evaluation/dataset/train_eval/eicu/ddl_database_openai_text-embedding-3-large.pkl"
+        # ddl_embedding_cache_file = "/root/workspace/vrdc_text2sql/model_evaluation/dataset/train_eval/eicu/ddl_database_openai_text-embedding-3-large.pkl"
+        ddl_embedding_cache_file = "/root/workspace/vrdc_text2sql/model_evaluation/dataset/train_eval/eicu/ddl_database_llama-3.2-nv-embedqa-1b-v1.pkl"
         ddl_retreiver.embed_blocks(
             text_blocks=blocks,
             cache_file=ddl_embedding_cache_file,

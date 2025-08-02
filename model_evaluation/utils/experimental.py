@@ -13,7 +13,7 @@ from openai import AzureOpenAI
 
 
 
-def split_sql_blocks(file_path):
+def split_sql_blocks(file_path: str) -> list[str]:
     """
     file_path: path to the `eicu_instruct_benchmark_rag.sql` file
     Read an SQL file and split it into blocks of code.
@@ -67,7 +67,7 @@ class TextBlock:
 
 
 class FAISSRetriever:
-    def __init__(self, api_key, api_version, azure_endpoint, model="text-embedding-3-large"):
+    def __init__(self, api_key, endpoint, api_version=None, model="text-embedding-3-large"):
         """
         Initialize the retriever with NVIDIA API client
         
@@ -76,22 +76,38 @@ class FAISSRetriever:
             model: Embedding model name
         """
 
-        # Create a client instance
-        self.client = AzureOpenAI(
-            api_key=api_key,
-            api_version=api_version,
-            azure_endpoint=azure_endpoint
+        # == Create a client instance for embedding ==
+        # use Azure OpenAI for embeding
+        # self.client = AzureOpenAI(
+        #     api_key=api_key,
+        #     api_version=api_version if api_version else os.getenv("LLM_GATEWAY_API_VERSION"),
+        #     azure_endpoint=endpoint if endpoint else os.getenv("LLM_GATEWAY_ENDPOINT")
+        # )
+
+        # use NIM for embeding
+        self.client = OpenAI(
+            api_key = api_key,
+            base_url = endpoint
         )
+        # == End of creating a client instance for embedding ==
 
         self.model = model
         self.blocks = []
         self.index = None
+        
+        # Initialize GPU resources for cuVS
+        assert faiss.get_num_gpus() > 0, "No GPU found"
+        self.gpu_res = faiss.StandardGpuResources()
+        self.device = 0
+        logger.info(f"GPU resources initialized on device {self.device}")
 
     def generate_embedding(self, text):
-        """Generate embedding for a single text using NVIDIA API"""
+        """Generate embedding for a single text"""
         response = self.client.embeddings.create(
             input=text,
-            model=self.model
+            model=self.model, 
+            encoding_format="float",
+            extra_body={"input_type": "passage", "truncate": "NONE"}
         )
         return response.data[0].embedding
 
@@ -110,9 +126,10 @@ class FAISSRetriever:
             with open(cache_file, 'rb') as f:
                 self.blocks = pickle.load(f)
         else:
+            logger.warning(f"No cached embeddings for DDL found")
             # Create TextBlock objects and generate embeddings
             self.blocks = []
-            logger.info(f"Generating embeddings for {len(text_blocks)} blocks...")
+            logger.info(f"Generating embeddings for {len(text_blocks)} DDL blocks...")
             
             for i, content in enumerate(text_blocks):
                 block = TextBlock(block_id=i, content=content)
@@ -124,9 +141,9 @@ class FAISSRetriever:
             
             # Save to cache if specified
             if cache_file:
-                logger.info(f"Saving embeddings to {cache_file}")
                 with open(cache_file, 'wb') as f:
                     pickle.dump(self.blocks, f)
+                logger.success(f"Embedded blocks saved to {cache_file}")
         
         # Create FAISS index
         self._create_index()
@@ -136,10 +153,16 @@ class FAISSRetriever:
         # Convert embeddings to numpy array
         embeddings = np.array([block.embedding for block in self.blocks]).astype('float32')
         
-        # Create FAISS index (L2 distance)
-        self.index = faiss.IndexFlatL2(embeddings.shape[1])
+        # Configure cuVS
+        cfg = faiss.GpuIndexFlatConfig()
+        cfg.device = self.device
+        cfg.useFloat16 = False
+        cfg.use_cuvs = True
+        
+        # Create GPU FAISS index with cuVS (L2 distance)
+        self.index = faiss.GpuIndexFlatL2(self.gpu_res, embeddings.shape[1], cfg)
         self.index.add(embeddings)
-        print(f"FAISS index created with {self.index.ntotal} entries")
+        logger.info(f"GPU cuVS FAISS index created with {self.index.ntotal} entries")
 
     def retrieve(self, query, top_k=5):
         """
