@@ -341,10 +341,185 @@ except Exception as e:
 > [!Reference]
     > See notebooks in : [example notebooks](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/6.RAG.ipynb)
 
-## Architecture
+## RAG architecture
 
 > [!NOTE]
-    > See [diagram](https://www.mermaidchart.com/app/projects/69dcd468-6052-4bde-97e1-ea268a4ab08c/diagrams/dd82ba4e-4616-4382-928b-104af646ba3b/version/v0.1/edit)
+    > See [mermaid diagram](https://www.mermaidchart.com/app/projects/69dcd468-6052-4bde-97e1-ea268a4ab08c/diagrams/dd82ba4e-4616-4382-928b-104af646ba3b/version/v0.1/edit)
+    
+
+```mermaid
+---
+
+config:
+
+layout: fixed
+
+theme: redux
+
+look: classic
+
+---
+
+flowchart TB
+
+subgraph subGraphInput["Input"]
+
+user_question["User question"]
+
+E["DDL statement"]
+
+train["train+val splits of Q&amp;A dataset"]
+
+end
+
+subgraph subGraph0["Q&amp;A Dataset Embedding"]
+
+has_embed_database["Has embedding cache file?"]
+
+database_embed_cache["<b>Q&amp;A dataset embedding cache (index)</b>"]
+
+embed@{ label: "<span style=\"--tw-scale-x:\"><span style=\"background-color:\">🤖</span><b>Embedding Model for Q&amp;A</b></span>" }
+
+end
+
+subgraph subGraph1["System Prompt"]
+
+sys_prompt["<b>System prompt</b>"]
+
+user_instruct["Additional instruction"]
+
+end
+
+subgraph subGraph2a["User Query Embedding"]
+
+embed_q@{ label: "🤖<b style=\"color:\">Embedding Model for Q&amp;A</b>" }
+
+embed_q_for_ddl@{ label: "🤖<b style=\"color:\">Embedding Model for DDL</b>" }
+
+question_embed["<b>Query embedding for Q&amp;A RAG</b>"]
+
+question_embed_ddl["<b>Query embedding for DDL RAG</b>"]
+
+end
+
+subgraph subGraph2b["Text2SQL Translation"]
+
+user_message["User message"]
+
+LLM@{ label: "🤖<b style=\"color:\">Text2SQL LLM</b>" }
+
+response@{ label: "✅<b style=\"color:\">Response with predicted SQL</b>" }
+
+end
+
+subgraph subGraph3["Q&A RAG"]
+
+search["Similarity search"]
+
+top_k["<b>Top k relevant QA pairs</b>"]
+
+end
+
+subgraph subGraph4["DDL Embedding"]
+
+embed_ddl["<b>Embedding Model for DDL</b>"]
+
+ddl_embedded["DDL embedding (index)"]
+
+end
+
+subgraph subGraph5["DDL RAG"]
+
+search_ddl["Similary Search"]
+
+top_k_ddl["Top k relevant DDL chunks"]
+
+end
+
+subgraph subGraph6["DDL Prepocessing"]
+
+E2["Enriched DDL"]
+
+chunk["Chunk SQL statement"]
+
+end
+
+train --> has_embed_database
+
+has_embed_database -- Yes --> database_embed_cache
+
+has_embed_database -- No --> embed
+
+embed -- Save --> database_embed_cache
+
+E -- Annotate --> E2
+
+user_instruct --> sys_prompt
+
+user_question --> user_message & embed_q_for_ddl & embed_q
+
+embed_q --> question_embed
+
+question_embed --> search
+
+database_embed_cache --> search
+
+search --> top_k
+
+top_k --> sys_prompt
+
+E2 --> chunk
+
+chunk --> embed_ddl
+
+embed_ddl --> ddl_embedded
+
+embed_q_for_ddl --> question_embed_ddl
+
+question_embed_ddl --> search_ddl
+
+ddl_embedded --> search_ddl
+
+search_ddl --> top_k_ddl
+
+top_k_ddl --> sys_prompt
+
+sys_prompt --> LLM
+
+user_message --> LLM
+
+LLM --> response
+
+embed_q@{ shape: rect}
+
+embed_q_for_ddl@{ shape: rect}
+
+LLM@{ shape: rect}
+
+response@{ shape: rect}
+
+style embed_q fill:#BBDEFB
+
+style embed_q_for_ddl fill:#FFF9C4
+
+style question_embed fill:#BBDEFB
+
+style question_embed_ddl fill:#FFF9C4
+
+style subGraph2b fill:#C8E6C9
+
+style subGraph2a fill:transparent,stroke:#000000
+
+style subGraph0 fill:#BBDEFB
+
+style subGraph3 fill:#BBDEFB
+
+style subGraph6 fill:#FFF9C4
+
+style subGraph4 fill:#FFF9C4
+
+style subGraph5 fill:#FFF9C4
+```
 
 ## Step 1: Confirm text2SQL LLM is running
 
