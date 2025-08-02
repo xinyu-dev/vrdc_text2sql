@@ -1,6 +1,4 @@
 # Text2SQL with RAG
-
-
 # Setup
 
 ## Resources
@@ -69,10 +67,9 @@
 	conda install -c pytorch -c nvidia -c rapidsai -c conda-forge libnvjitlink faiss-gpu-cuvs=1.11.0
 	```
 5. Install vllm. Currently I am using `v0.9.2`
-```bash	
-pip install vllm "numpy<2" pandas sqlalchemy func-timeout loguru python-dotenv ipykernel
-```
-6. 
+	```bash	
+	pip install vllm "numpy<2" pandas sqlalchemy func-timeout loguru python-dotenv ipykernel
+	```
 
 ## Model Weights
 
@@ -227,10 +224,25 @@ It will show `200` status:
 * Connection #0 to host localhost left intact
 ```
 
+# Notebook Organization
+
+> [!NOTE]
+    > Inside [example notebooks](https://github.com/xinyu-dev/vrdc_text2sql/tree/main/examples), there are some notebooks that you can follow through
+
+| **Notebooks**                                                                                                                                                                                 | **Explanation**                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [1.quick_start.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/1.quick_start.ipynb "1.quick_start.ipynb")                                                                | Quick start notebook to demo how to use the finetuned, vLLM deployed mistral nemo minitron 8B model                        |
+| [2.example_inference_and_evaluation.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/2.example_inference_and_evaluation.ipynb "2.example_inference_and_evaluation.ipynb") | Example of running inference and evaluation on small subset of eICU dataset, using the finetuned mistral mode, without RAG |
+| [3.eICU_benchmark_finetuned.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/3.eICU_benchmark_finetuned.ipynb "3.eICU_benchmark_finetuned.ipynb")                         | Complete benchmark of finetuned mistral model on eICU dataset, without RAG                                                 |
+| [4.eICU_benchmark_claude.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/4.eICU_benchmark_claude.ipynb "4.eICU_benchmark_claude.ipynb")                                  | Complete benchmark of various versions of Claude on eICU dataset, without RAG                                              |
+| [5.eICU_benchmark_openai.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/5.eICU_benchmark_openai.ipynb "5.eICU_benchmark_openai.ipynb")                                  | Complete benchmark of various versions of OpenAI models on eICU dataset, without RAG                                       |
+| [6.RAG.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/6.RAG.ipynb "6.RAG.ipynb")                                                                                        | Complete benchmark of mistral, Claude, or OpenAI model, with different RAG settings                                        |
+| [7.faiss_cpu_vs_gpu.ipynb](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/7.faiss_cpu_vs_gpu.ipynb "7.faiss_cpu_vs_gpu.ipynb")                                                 | Example of benchmarking FAISS vector search on CPU and GPU                                                                 |
+
 # Basic Usage for vLLM deployed Mistral
 
 > [!Reference]
-    > See notebooks in : [example notebooks](https://github.com/xinyu-dev/vrdc_text2sql/tree/main/examples)
+    > See notebooks in : [example notebooks](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/2.example_inference_and_evaluation.ipynb)
 
 > [!NOTE]
     > Skip this section if you're using Claude or OpenAI
@@ -327,7 +339,7 @@ except Exception as e:
 # Inference with RAG
 
 > [!Reference]
-    > See notebooks in : [example notebooks](https://github.com/xinyu-dev/vrdc_text2sql/tree/main/examples)
+    > See notebooks in : [example notebooks](https://github.com/xinyu-dev/vrdc_text2sql/blob/main/examples/6.RAG.ipynb)
 
 ## Architecture
 
@@ -864,4 +876,4 @@ These are the most important metrics. They evaluate the model's performance on t
 	    ...
 	```
 2. The embedding model used for DDL chunking must have a large context window, otherwise it might run out of context. `nvidia/nv-embedqa-mistral-7b-v2` has a window of **512** token, which is too small. OpenAI's `text-embedding-3-large` has a **8191** token.
-3. 
+
